@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { INV_CODE_COOKIE } from '@/app/api/register/route';
+import { INV_CODE_COOKIE } from '@/lib/inv-code-cookie';
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 15; // 15 minutes
 
