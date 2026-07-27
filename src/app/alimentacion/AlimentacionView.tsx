@@ -13,7 +13,8 @@ type AlimentoOption = {
 
 type ItemRow = {
   id_item: number;
-  id_alimento: number;
+  id_alimento: number | null;
+  nombre_manual: string | null;
   tipo_item: string;
   cantidad: number | string;
   kcal: number | string;
@@ -107,11 +108,13 @@ export default function AlimentacionView({
   alimentos,
   fecha,
   initialTipo,
+  hideNutrition,
 }: {
   ingestas: IngestaRow[];
   alimentos: AlimentoOption[];
   fecha: string;
   initialTipo: IngestaTipo;
+  hideNutrition: boolean;
 }) {
   const [selectedTipo, setSelectedTipo] = useState<IngestaTipo>(initialTipo);
 
@@ -150,14 +153,16 @@ export default function AlimentacionView({
                 : `${selectedItems} ítem${selectedItems !== 1 ? 's' : ''} cargado${selectedItems !== 1 ? 's' : ''}`}
             </p>
           </div>
-          <div
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold"
-            style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}
-          >
-            🔥 {Math.round(selectedKcal)} kcal
-          </div>
+          {!hideNutrition && (
+            <div
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold"
+              style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}
+            >
+              🔥 {Math.round(selectedKcal)} kcal
+            </div>
+          )}
         </div>
-        {totalKcal > 0 && (
+        {!hideNutrition && totalKcal > 0 && (
           <p className="text-xs text-white/60 mt-2">Total del día: {Math.round(totalKcal)} kcal</p>
         )}
       </div>
@@ -203,6 +208,7 @@ export default function AlimentacionView({
         ingesta={selectedIngesta}
         tipoIngesta={selectedTipo}
         fecha={fecha}
+        hideNutrition={hideNutrition}
       />
     </>
   );

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import LogoutButton from '@/components/auth/LogoutButton';
 import BottomNav from '@/components/BottomNav';
 import AthleteSidebar from '@/components/AthleteSidebar';
-import { getRoleLabel } from '@/lib/roles';
+import { getRoleLabel, shouldHideNutritionInfo } from '@/lib/roles';
 import { createClient } from '@/lib/supabase/server';
 import { INGESTA_TIPOS, isValidDateInput, type IngestaTipo } from '@/lib/nutrition';
 import { todayAR } from '@/lib/date';
@@ -19,7 +19,8 @@ type AlimentoOption = {
 
 type ItemRow = {
   id_item: number;
-  id_alimento: number;
+  id_alimento: number | null;
+  nombre_manual: string | null;
   tipo_item: string;
   cantidad: number | string;
   kcal: number | string;
@@ -65,12 +66,14 @@ export default async function AlimentacionPage({
   if (!profile) redirect('/login');
   if (profile.role === 'investigador' || profile.role === 'administrador') redirect('/dashboard');
 
+  const hideNutrition = shouldHideNutritionInfo(profile.role);
+
   const { data: ingestasData } = await supabase
     .from('ingestas')
     .select(`
       id_ingesta, tipo, fecha,
       kcal_total, proteinas_total_g, grasas_total_g, carbs_total_g,
-      items(id_item, id_alimento, tipo_item, cantidad, kcal, proteinas_g, grasas_g, carbs_g,
+      items(id_item, id_alimento, nombre_manual, tipo_item, cantidad, kcal, proteinas_g, grasas_g, carbs_g,
         alimentos(nombre, categoria))
     `)
     .eq('id_usuario', user.id)
@@ -113,6 +116,7 @@ export default async function AlimentacionPage({
             alimentos={alimentos}
             fecha={fecha}
             initialTipo={selectedTipo}
+            hideNutrition={hideNutrition}
           />
 
         </div>

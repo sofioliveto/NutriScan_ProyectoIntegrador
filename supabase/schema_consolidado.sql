@@ -657,3 +657,57 @@ ALTER TABLE public.academic_data
 ALTER TABLE public.academic_data
   ADD CONSTRAINT academic_data_anio_check
   CHECK (anio BETWEEN 1990 AND 2100) NOT VALID;
+
+
+-- ============================================================
+-- 008 (manual food entry) — Carga manual de alimentos que no están en el catálogo SARA2
+-- No se modifica ni se inserta en public.alimentos (catálogo maestro).
+-- ============================================================
+
+ALTER TABLE public.items
+  ALTER COLUMN id_alimento DROP NOT NULL;
+
+ALTER TABLE public.items
+  ADD COLUMN IF NOT EXISTS nombre_manual text;
+
+ALTER TABLE public.items
+  ADD CONSTRAINT items_alimento_or_manual_check
+  CHECK (id_alimento IS NOT NULL OR nombre_manual IS NOT NULL) NOT VALID;
+
+CREATE OR REPLACE FUNCTION public.calculate_item_nutrients()
+RETURNS TRIGGER AS $$
+DECLARE
+  kcal_100 numeric(10,2);
+  prot_100 numeric(10,2);
+  fat_100 numeric(10,2);
+  carb_100 numeric(10,2);
+BEGIN
+  IF new.id_alimento IS NULL THEN
+    new.kcal = 0;
+    new.proteinas_g = 0;
+    new.grasas_g = 0;
+    new.carbs_g = 0;
+    RETURN new;
+  END IF;
+
+  SELECT
+    coalesce(a.kcal_100g, 0),
+    coalesce(a.proteinas_100g, 0),
+    coalesce(a.grasas_100g, 0),
+    coalesce(a.carbs_100g, 0)
+  INTO kcal_100, prot_100, fat_100, carb_100
+  FROM public.alimentos a
+  WHERE a.id_alimento = new.id_alimento;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Alimento no encontrado para id_alimento=%', new.id_alimento;
+  END IF;
+
+  new.kcal = round((kcal_100 * new.cantidad) / 100, 2);
+  new.proteinas_g = round((prot_100 * new.cantidad) / 100, 2);
+  new.grasas_g = round((fat_100 * new.cantidad) / 100, 2);
+  new.carbs_g = round((carb_100 * new.cantidad) / 100, 2);
+
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql;

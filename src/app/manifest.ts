@@ -2,7 +2,6 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/",
     name: "NutriScan",
     short_name: "NutriScan",
     description:

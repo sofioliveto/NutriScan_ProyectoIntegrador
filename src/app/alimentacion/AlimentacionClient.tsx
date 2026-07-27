@@ -15,8 +15,11 @@ function formatFechaTitle(fecha: string): string {
   }).format(date);
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
-import { addItemAction, deleteItemAction, updateItemAction } from './actions';
+import { addItemAction, addManualItemAction, deleteItemAction, updateItemAction } from './actions';
 import { type IngestaTipo } from '@/lib/nutrition';
+import Modal from '@/components/ui/Modal';
+import Input from '@/components/ui/Input';
+import AIRecognitionModal from './AIRecognitionModal';
 
 type AlimentoOption = {
   id_alimento: number;
@@ -26,7 +29,8 @@ type AlimentoOption = {
 
 type ItemRow = {
   id_item: number;
-  id_alimento: number;
+  id_alimento: number | null;
+  nombre_manual: string | null;
   tipo_item: string;
   cantidad: number | string;
   kcal: number | string;
@@ -53,6 +57,7 @@ function toNum(v: number | string | null | undefined): number {
 }
 
 function getAlimentoNombre(item: ItemRow): string {
+  if (item.id_alimento == null) return item.nombre_manual ?? 'Alimento sin nombre';
   if (Array.isArray(item.alimentos)) return item.alimentos[0]?.nombre ?? `Alimento #${item.id_alimento}`;
   return (item.alimentos as { nombre: string } | null)?.nombre ?? `Alimento #${item.id_alimento}`;
 }
@@ -82,17 +87,21 @@ export default function AlimentacionClient({
   ingesta,
   tipoIngesta,
   fecha,
+  hideNutrition,
 }: {
   alimentos: AlimentoOption[];
   ingesta: IngestaRow;
   tipoIngesta: IngestaTipo;
   fecha: string;
+  hideNutrition: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [selectedAlimento, setSelectedAlimento] = useState<AlimentoOption | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editingCantidad, setEditingCantidad] = useState('');
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
 
   const accentColor = MEAL_COLOR[tipoIngesta];
   const label = MEAL_LABEL[tipoIngesta];
@@ -122,6 +131,16 @@ export default function AlimentacionClient({
     setShowDropdown(false);
   };
 
+  const handleOpenManualModal = () => {
+    setShowDropdown(false);
+    setShowManualModal(true);
+  };
+
+  const handleCloseManualModal = () => {
+    setShowManualModal(false);
+    setQuery('');
+  };
+
   const handleStartEdit = (item: ItemRow) => {
     setEditingItemId(item.id_item);
     setEditingCantidad(toNum(item.cantidad).toFixed(0));
@@ -140,56 +159,151 @@ export default function AlimentacionClient({
         </div>
       )}
 
-      {/* Search */}
+      {/* Search + AI recognition button */}
       {canEdit && (
-      <div className="relative">
-        <div className="relative">
-          <svg
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400"
-            width="18" height="18"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-          </svg>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelectedAlimento(null);
-              setShowDropdown(true);
-            }}
-            onFocus={() => setShowDropdown(true)}
-            onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-            placeholder={
-              tipoIngesta === 'suplemento'
-                ? 'Buscar suplemento: proteína, creatina...'
-                : 'Buscar en SARA2: arroz, pollo, banana...'
-            }
-            className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all"
-            style={{ ['--tw-ring-color' as string]: `${accentColor}40` }}
-          />
+      <div className="flex items-start gap-2">
+        <div className="relative flex-1">
+          <div className="relative">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400"
+              width="18" height="18"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSelectedAlimento(null);
+                setShowDropdown(true);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+              placeholder={
+                tipoIngesta === 'suplemento'
+                  ? 'Buscar suplemento: proteína, creatina...'
+                  : 'Buscar en SARA2: arroz, pollo, banana...'
+              }
+              className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all"
+              style={{ ['--tw-ring-color' as string]: `${accentColor}40` }}
+            />
+          </div>
+
+          {/* Dropdown results */}
+          {showDropdown && filtered.length > 0 && !selectedAlimento && (
+            <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-lg border border-gray-100 z-20 mt-1 overflow-hidden max-h-64 overflow-y-auto">
+              {filtered.map((a) => (
+                <button
+                  key={a.id_alimento}
+                  onMouseDown={() => handleSelectAlimento(a)}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center justify-between border-b border-gray-50 last:border-0 transition-colors"
+                >
+                  <span className="font-medium text-gray-900">{a.nombre}</span>
+                  {a.categoria && (
+                    <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{a.categoria}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Empty state: no matches found */}
+          {showDropdown && query.length >= 2 && filtered.length === 0 && !selectedAlimento && (
+            <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-lg border border-gray-100 z-20 mt-1 p-4 text-center">
+              <p className="text-sm text-gray-500">No encontramos &quot;{query}&quot; en el catálogo.</p>
+              <button
+                type="button"
+                onMouseDown={handleOpenManualModal}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
+                style={{ color: accentColor }}
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Cargar alimento manualmente
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Dropdown results */}
-        {showDropdown && filtered.length > 0 && !selectedAlimento && (
-          <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-lg border border-gray-100 z-20 mt-1 overflow-hidden max-h-64 overflow-y-auto">
-            {filtered.map((a) => (
-              <button
-                key={a.id_alimento}
-                onMouseDown={() => handleSelectAlimento(a)}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center justify-between border-b border-gray-50 last:border-0 transition-colors"
-              >
-                <span className="font-medium text-gray-900">{a.nombre}</span>
-                {a.categoria && (
-                  <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{a.categoria}</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* AI recognition button */}
+        <button
+          type="button"
+          onClick={() => setShowAIModal(true)}
+          className="flex-shrink-0 flex items-center gap-1.5 rounded-2xl px-4 py-3.5 text-sm font-semibold text-white transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          style={{
+            backgroundImage: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
+            boxShadow: '0 8px 20px rgba(168,85,247,0.35)',
+          }}
+        >
+          <span aria-hidden="true">✨</span>
+          <span className="hidden sm:inline">Reconocimiento por IA</span>
+        </button>
       </div>
       )}
+
+      {/* Manual food entry modal */}
+      <Modal open={showManualModal} onClose={handleCloseManualModal} title="Cargar alimento manualmente">
+        <form
+          action={addManualItemAction}
+          className="space-y-4"
+          onSubmit={() => setShowManualModal(false)}
+        >
+          <input type="hidden" name="fecha" value={fecha} />
+          <input type="hidden" name="tipo_ingesta" value={tipoIngesta} />
+          <input type="hidden" name="tipo_item" value="solido" />
+          <Input
+            label="Nombre del alimento"
+            name="nombre_manual"
+            defaultValue={query}
+            placeholder="Ej: Tarta casera de verduras"
+            maxLength={120}
+            required
+            autoFocus
+          />
+          <div>
+            <label className="text-sm font-medium text-gray-700">Cantidad</label>
+            <div className="mt-1 flex gap-2 items-center">
+              <input
+                type="number"
+                name="cantidad"
+                placeholder="Cantidad en gramos"
+                min="1"
+                max={MAX_CANTIDAD}
+                step="any"
+                required
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 transition-all"
+                style={{ ['--tw-ring-color' as string]: `${accentColor}40` }}
+              />
+              <span className="text-sm text-gray-500 font-medium pr-1">g</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400">
+            Este alimento no está en el catálogo SARA2, así que no se contabilizan sus calorías ni macros.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: accentColor }}
+            >
+              Agregar a {label}
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseManualModal}
+              className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* AI recognition modal (mockup) */}
+      <AIRecognitionModal open={showAIModal} onClose={() => setShowAIModal(false)} />
 
       {/* Add form (shown when food is selected) */}
       {canEdit && selectedAlimento && (
@@ -317,15 +431,19 @@ export default function AlimentacionClient({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900 truncate">{getAlimentoNombre(item)}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {toNum(item.cantidad).toFixed(0)} g
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-xs font-semibold text-gray-700">{toNum(item.kcal).toFixed(0)} kcal</span>
-                        <span className="text-xs text-gray-400">P {toNum(item.proteinas_g).toFixed(1)}g</span>
-                        <span className="text-xs text-gray-400">C {toNum(item.carbs_g).toFixed(1)}g</span>
-                        <span className="text-xs text-gray-400">G {toNum(item.grasas_g).toFixed(1)}g</span>
-                      </div>
+                      {!hideNutrition && (
+                        <>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {toNum(item.cantidad).toFixed(0)} g
+                          </p>
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <span className="text-xs font-semibold text-gray-700">{toNum(item.kcal).toFixed(0)} kcal</span>
+                            <span className="text-xs text-gray-400">P {toNum(item.proteinas_g).toFixed(1)}g</span>
+                            <span className="text-xs text-gray-400">C {toNum(item.carbs_g).toFixed(1)}g</span>
+                            <span className="text-xs text-gray-400">G {toNum(item.grasas_g).toFixed(1)}g</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {/* Edit button */}
@@ -361,18 +479,20 @@ export default function AlimentacionClient({
             ))}
 
             {/* Meal totals */}
-            <div
-              className="rounded-2xl p-4 mt-2"
-              style={{ backgroundColor: `${accentColor}10` }}
-            >
-              <p className="text-xs font-semibold text-gray-600 mb-1">Total {label}</p>
-              <div className="flex items-center gap-4 flex-wrap">
-                <span className="text-sm font-bold text-gray-900">{toNum(ingesta?.kcal_total).toFixed(0)} kcal</span>
-                <span className="text-xs text-gray-500">P {toNum(ingesta?.proteinas_total_g).toFixed(1)}g</span>
-                <span className="text-xs text-gray-500">C {toNum(ingesta?.carbs_total_g).toFixed(1)}g</span>
-                <span className="text-xs text-gray-500">G {toNum(ingesta?.grasas_total_g).toFixed(1)}g</span>
+            {!hideNutrition && (
+              <div
+                className="rounded-2xl p-4 mt-2"
+                style={{ backgroundColor: `${accentColor}10` }}
+              >
+                <p className="text-xs font-semibold text-gray-600 mb-1">Total {label}</p>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <span className="text-sm font-bold text-gray-900">{toNum(ingesta?.kcal_total).toFixed(0)} kcal</span>
+                  <span className="text-xs text-gray-500">P {toNum(ingesta?.proteinas_total_g).toFixed(1)}g</span>
+                  <span className="text-xs text-gray-500">C {toNum(ingesta?.carbs_total_g).toFixed(1)}g</span>
+                  <span className="text-xs text-gray-500">G {toNum(ingesta?.grasas_total_g).toFixed(1)}g</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
