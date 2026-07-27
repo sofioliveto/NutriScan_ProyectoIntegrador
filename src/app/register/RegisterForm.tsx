@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -138,8 +139,8 @@ export default function RegisterForm() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white px-4 py-4 flex items-center border-b border-gray-100">
         <div className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="Logo NutriScan" className="w-8 h-8 text-white" />
-          <img src="/tituloNutriScanNEGRO.png" alt="NutriScan" className="h-6" />
+          <Image src="/logo.png" alt="Logo NutriScan" width={32} height={32} className="w-8 h-8 text-white" />
+          <Image src="/tituloNutriScanNEGRO.png" alt="NutriScan" width={120} height={24} className="h-6 w-auto" />
         </div>
       </header>
 

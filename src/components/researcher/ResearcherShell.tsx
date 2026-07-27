@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Sidebar from './Sidebar';
 
 interface ResearcherShellProps {
@@ -41,7 +42,7 @@ export default function ResearcherShell({ nombre, apellido, children }: Research
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
-          <img src="/logo.png" alt="NutriScan" className="h-7 w-7" />
+          <Image src="/logo.png" alt="NutriScan" width={28} height={28} className="h-7 w-7" />
           <span className="text-sm font-semibold text-slate-900">Panel Investigador</span>
         </header>
 
