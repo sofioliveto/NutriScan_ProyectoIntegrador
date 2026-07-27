@@ -6,6 +6,14 @@ export function getRoleLabel(role: string): string {
   return role;
 }
 
+/**
+ * Deportistas UCC participan en un estudio a ciegas: no deben recibir
+ * retroalimentación numérica de calorías/macros para no sesgar su conducta alimentaria.
+ */
+export function shouldHideNutritionInfo(role: string): boolean {
+  return role === 'deportista_ucc';
+}
+
 export function determineRoleFromEmail(email: string): UserRole {
   const domain = email.split('@')[1]?.toLowerCase();
   if (domain === 'ucc.edu.ar') {
