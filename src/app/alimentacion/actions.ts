@@ -102,6 +102,83 @@ export async function addItemAction(formData: FormData) {
   redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
 }
 
+const MAX_NOMBRE_MANUAL = 120;
+
+export async function addManualItemAction(formData: FormData) {
+  const fecha = getStringField(formData, 'fecha');
+  const tipoIngesta = getStringField(formData, 'tipo_ingesta');
+  const tipoItem = getStringField(formData, 'tipo_item');
+  const nombreManual = getStringField(formData, 'nombre_manual').slice(0, MAX_NOMBRE_MANUAL);
+  const cantidadRaw = getStringField(formData, 'cantidad');
+
+  if (!isValidDateInput(fecha)) redirect('/alimentacion');
+  if (!isWithinEditableRange(fecha)) redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
+  if (!INGESTA_TIPOS.includes(tipoIngesta as (typeof INGESTA_TIPOS)[number])) {
+    redirect(`/alimentacion?fecha=${fecha}`);
+  }
+  if (!ITEM_TIPOS.includes(tipoItem as (typeof ITEM_TIPOS)[number])) {
+    redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
+  }
+
+  const cantidad = Number.parseFloat(cantidadRaw);
+
+  if (
+    !nombreManual ||
+    !Number.isFinite(cantidad) || cantidad <= 0 || cantidad > MAX_CANTIDAD
+  ) {
+    redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect('/login');
+
+  const { error: upsertError } = await supabase.from('ingestas').upsert(
+    [
+      {
+        id_usuario: user.id,
+        fecha,
+        tipo: tipoIngesta,
+      },
+    ],
+    { onConflict: 'id_usuario,fecha,tipo' },
+  );
+
+  if (upsertError) {
+    redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
+  }
+
+  const { data: ingesta, error: ingestaError } = await supabase
+    .from('ingestas')
+    .select('id_ingesta')
+    .eq('id_usuario', user.id)
+    .eq('fecha', fecha)
+    .eq('tipo', tipoIngesta)
+    .single();
+
+  if (ingestaError || !ingesta) {
+    redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
+  }
+
+  const { error: insertError } = await supabase.from('items').insert({
+    id_ingesta: ingesta.id_ingesta,
+    id_alimento: null,
+    nombre_manual: nombreManual,
+    tipo_item: tipoItem,
+    cantidad: toFixed2(cantidad),
+  });
+
+  if (insertError) {
+    redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
+  }
+
+  revalidatePath('/alimentacion');
+  redirect(`/alimentacion?fecha=${fecha}&tipo=${tipoIngesta}`);
+}
+
 export async function deleteItemAction(formData: FormData) {
   const fecha = getStringField(formData, 'fecha');
   const tipoIngesta = getStringField(formData, 'tipo_ingesta');

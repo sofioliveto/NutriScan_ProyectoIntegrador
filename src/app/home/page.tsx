@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import AthleteSidebar from '@/components/AthleteSidebar';
-import { getRoleLabel } from '@/lib/roles';
+import { getRoleLabel, shouldHideNutritionInfo } from '@/lib/roles';
 import LogoutButton from '@/components/auth/LogoutButton';
 import Link from 'next/link';
 import { type IngestaTipo } from '@/lib/nutrition';
@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic';
 type ItemSnippet = {
   id_item: number;
   kcal: number | string;
+  nombre_manual: string | null;
   alimentos: { nombre: string } | Array<{ nombre: string }> | null;
 };
 
@@ -41,8 +42,8 @@ function mealLabel(tipo: string): string {
 }
 
 function getAlimentoName(item: ItemSnippet): string | undefined {
-  if (Array.isArray(item.alimentos)) return item.alimentos[0]?.nombre;
-  return (item.alimentos as { nombre: string } | null)?.nombre;
+  if (Array.isArray(item.alimentos)) return item.alimentos[0]?.nombre ?? item.nombre_manual ?? undefined;
+  return (item.alimentos as { nombre: string } | null)?.nombre ?? item.nombre_manual ?? undefined;
 }
 
 export default async function HomePage() {
@@ -59,6 +60,8 @@ export default async function HomePage() {
   if (!profile) redirect('/login');
   if (profile.role === 'investigador') redirect('/dashboard');
 
+  const hideNutrition = shouldHideNutritionInfo(profile.role);
+
   const { data: physicalData } = await supabase
     .from('physical_data')
     .select('get_kcal, proteinas_g, carbohidratos_g, grasas_g')
@@ -71,7 +74,7 @@ export default async function HomePage() {
     .from('ingestas')
     .select(`
       id_ingesta, tipo, kcal_total, proteinas_total_g, grasas_total_g, carbs_total_g,
-      items(id_item, kcal, alimentos(nombre))
+      items(id_item, kcal, nombre_manual, alimentos(nombre))
     `)
     .eq('id_usuario', user.id)
     .eq('fecha', today);
@@ -143,37 +146,48 @@ export default async function HomePage() {
             {/* Left column */}
             <div className="space-y-5 w-full max-w-full mx-auto">
               {/* Calorie card */}
-              <div
-                className="w-full max-w-full mx-auto rounded-2xl text-white p-5 transition-shadow duration-200 hover:shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #1a3a5c 0%, #1b7a5e 100%)' }}
-              >
-                <div className="flex flex-wrap items-center gap-5">
-                  <div className="relative w-24 h-24 flex-shrink-0">
-                    <svg className="w-full h-full -rotate-90" viewBox="0 0 88 88">
-                      <circle cx="44" cy="44" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
-                      <circle cx="44" cy="44" r={r} fill="none" stroke="white" strokeWidth="8"
-                        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                      <span className="text-xl font-bold leading-none">{pctKcal}%</span>
-                      <span className="text-xs text-white/60 mt-0.5">META</span>
+              {hideNutrition ? (
+                <div
+                  className="w-full max-w-full mx-auto rounded-2xl text-white p-5 transition-shadow duration-200 hover:shadow-lg"
+                  style={{ background: 'linear-gradient(135deg, #1a3a5c 0%, #1b7a5e 100%)' }}
+                >
+                  <p className="text-xs text-white/65 uppercase tracking-wider font-semibold">Registro de comidas</p>
+                  <p className="text-xl font-bold mt-1">Registrá lo que comiste hoy</p>
+                  <p className="text-sm text-white/65 mt-1">{loadedCount}/5 comidas cargadas</p>
+                </div>
+              ) : (
+                <div
+                  className="w-full max-w-full mx-auto rounded-2xl text-white p-5 transition-shadow duration-200 hover:shadow-lg"
+                  style={{ background: 'linear-gradient(135deg, #1a3a5c 0%, #1b7a5e 100%)' }}
+                >
+                  <div className="flex flex-wrap items-center gap-5">
+                    <div className="relative w-24 h-24 flex-shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 88 88">
+                        <circle cx="44" cy="44" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
+                        <circle cx="44" cy="44" r={r} fill="none" stroke="white" strokeWidth="8"
+                          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                        <span className="text-xl font-bold leading-none">{pctKcal}%</span>
+                        <span className="text-xs text-white/60 mt-0.5">META</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white/65 uppercase tracking-wider font-semibold">Calorías hoy</p>
+                      <p className="text-3xl font-bold mt-0.5 leading-tight">
+                        {Math.round(totalKcal)}{' '}
+                        <span className="text-base font-normal text-white/55">/ {Math.round(metaKcal)} kcal</span>
+                      </p>
+                      <p className="text-sm text-white/65 mt-1">🔥 Faltan {Math.max(0, Math.round(metaKcal - totalKcal))} kcal</p>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white/65 uppercase tracking-wider font-semibold">Calorías hoy</p>
-                    <p className="text-3xl font-bold mt-0.5 leading-tight">
-                      {Math.round(totalKcal)}{' '}
-                      <span className="text-base font-normal text-white/55">/ {Math.round(metaKcal)} kcal</span>
-                    </p>
-                    <p className="text-sm text-white/65 mt-1">🔥 Faltan {Math.max(0, Math.round(metaKcal - totalKcal))} kcal</p>
+                  <div className="mt-5 space-y-2.5">
+                    <MacroBar label="CARBS" current={totalCarbs} target={metaCarbs} color="#f59e0b" unit="g" />
+                    <MacroBar label="PROTEÍNAS" current={totalProte} target={metaProte} color="#ef4444" unit="g" />
+                    <MacroBar label="GRASAS" current={totalGrasas} target={metaGrasas} color="#8b5cf6" unit="g" />
                   </div>
                 </div>
-                <div className="mt-5 space-y-2.5">
-                  <MacroBar label="CARBS" current={totalCarbs} target={metaCarbs} color="#f59e0b" unit="g" />
-                  <MacroBar label="PROTEÍNAS" current={totalProte} target={metaProte} color="#ef4444" unit="g" />
-                  <MacroBar label="GRASAS" current={totalGrasas} target={metaGrasas} color="#8b5cf6" unit="g" />
-                </div>
-              </div>
+              )}
 
               {/* Recent meals */}
               {recentIngestas.length > 0 ? (
@@ -191,10 +205,12 @@ export default async function HomePage() {
                             <p className="text-sm font-medium text-gray-900 truncate">{itemNames || mealLabel(ingesta.tipo)}</p>
                             <p className="text-xs text-gray-400">{mealLabel(ingesta.tipo)}</p>
                           </div>
-                          <div className="text-right flex-shrink-0 ml-4">
-                            <p className="text-sm font-bold text-gray-900">{Math.round(toNum(ingesta.kcal_total))}</p>
-                            <p className="text-xs text-gray-400">KCAL</p>
-                          </div>
+                          {!hideNutrition && (
+                            <div className="text-right flex-shrink-0 ml-4">
+                              <p className="text-sm font-bold text-gray-900">{Math.round(toNum(ingesta.kcal_total))}</p>
+                              <p className="text-xs text-gray-400">KCAL</p>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
