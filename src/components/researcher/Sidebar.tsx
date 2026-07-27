@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import LogoutButton from '@/components/auth/LogoutButton';
@@ -46,9 +47,9 @@ function SidebarContent({ nombre, apellido, onNavigate }: SidebarContentProps) {
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="flex items-center gap-3 px-5 py-6">
-        <img src="/logo.png" alt="NutriScan" className="h-10 w-10 shrink-0" />
+        <Image src="/logo.png" alt="NutriScan" width={40} height={40} className="h-10 w-10 shrink-0" />
         <div className="min-w-0">
-          <img src="/tituloNutriScanNEGRO.png" alt="NutriScan" className="h-5" />
+          <Image src="/tituloNutriScanNEGRO.png" alt="NutriScan" width={100} height={20} className="h-5 w-auto" />
           <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Panel Investigador
           </p>

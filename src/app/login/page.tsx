@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -66,8 +67,8 @@ function LeftPanel() {
       />
 
       <div className="flex items-center gap-3 z-10">
-        <img src="/logo.png" alt="Logo NutriScan" className="w-10 h-10 drop-shadow-lg" />
-        <img src="/tituloNutriScan.png" alt="NutriScan" className="h-8" />
+        <Image src="/logo.png" alt="Logo NutriScan" width={40} height={40} className="w-10 h-10 drop-shadow-lg" />
+        <Image src="/tituloNutriScan.png" alt="NutriScan" width={140} height={32} className="h-8 w-auto" />
       </div>
 
       <div className="z-10 space-y-6">
@@ -583,9 +584,9 @@ export default function LoginPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center bg-white px-6 sm:px-12 py-12 min-h-screen">
         <div className="lg:hidden flex items-center gap-2 mb-8">
-          <img src="/logo.png" alt="Logo NutriScan" className="w-9 h-9 text-white" />
+          <Image src="/logo.png" alt="Logo NutriScan" width={36} height={36} className="w-9 h-9 text-white" />
           {/* Fondo blanco: logo negro */}
-          <img src="/tituloNutriScanNEGRO.png" alt="NutriScan" className="h-7" />
+          <Image src="/tituloNutriScanNEGRO.png" alt="NutriScan" width={140} height={28} className="h-7 w-auto" />
         </div>
 
         <div className="relative flex bg-gray-100 rounded-full p-1 mb-8 w-full max-w-sm gap-1">
