@@ -37,7 +37,10 @@ export default function BottomNav() {
   const isPerfil = pathname === '/perfil';
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 lg:hidden">
+    <nav
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 lg:hidden"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="flex items-stretch h-16">
         <Link
           href="/home"

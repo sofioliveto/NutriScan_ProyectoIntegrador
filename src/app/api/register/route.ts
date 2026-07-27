@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { strongPasswordSchema } from '@/lib/password';
-
-export const INV_CODE_COOKIE = 'inv_code_token';
+import { INV_CODE_COOKIE } from '@/lib/inv-code-cookie';
 
 const bodySchema = z.object({
   email: z.string().email('Email inválido').transform((s) => s.trim().toLowerCase()),
